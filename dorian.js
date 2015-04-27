@@ -1,13 +1,16 @@
 var cmbx = require('./lib/combinatorics').Combinatorics;
-var mocha = require('mocha');
+var mocha_frap = require('./lib/mocha_frap');
 var expect = require('chai').expect;
 
-var m = new mocha({reporter:'spec'});
+var mocha = new mocha_frap({
+    ui: 'tdd',
+    reporter: 'spec'
+});
 /*
 TODO: Need to be able to run mocha programatically. Take a look at a mocha run to see how suites are built.
 TODO: See if we can build a mocha test suite, and run it programatically.
-
 */
+
 var third_party_modules = [];
 var internal_modules = [];
 var arg_test_values = [undefined, null, ''];
@@ -27,18 +30,29 @@ internal_modules.forEach(function(app_module){
         case 'function':
             //inspect fn args
             var fn_declaration = /(?:function \()([^\)]+)\)/g.exec(exported_object.toString());
-            var fn_args = fn_declaration[1].replace(' ', '').split(',');
+            if (fn_declaration) {
+                var fn_args = fn_declaration[1].replace(' ', '').split(',');
 
-            var test_matrix = cmbx.baseN(arg_test_values, fn_args.length).toArray();
+                var test_matrix = cmbx.baseN(arg_test_values, fn_args.length).toArray();
 
-            // TODO: This doesn't work.
-            runTests.apply(m, [exported_object, fn_declaration, test_matrix]);
-
+                var mocha_suite = mocha.addTest('testing.addTest', function (done) {
+                    expect(true).to.be.true;
+                    expect(false).to.be.true;
+                    done();
+                });
+            }
             break;
         default:
             console.log('Unsupported module.exports type');
             break;
     };
+    mocha.run(function(failures){
+        if(failures) {
+            console.log("Failures: %s", failures);
+        } else {
+            console.log("Module tests complete");
+        }
+    });
 });
 
 function runTests(exported_object, fn_declaration, test_matrix){
