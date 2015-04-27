@@ -35,11 +35,13 @@ internal_modules.forEach(function(app_module){
 
                 var test_matrix = cmbx.baseN(arg_test_values, fn_args.length).toArray();
 
-                var mocha_suite = mocha.addTest('testing.addTest', function (done) {
-                    expect(true).to.be.true;
-                    expect(false).to.be.true;
-                    done();
+                test_matrix.forEach(function(fn_args) {
+                    mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
+                        expect(exported_object.apply(this, fn_args)).to.not.throw;
+                        done();
+                    });
                 });
+
             }
             break;
         default:
@@ -55,12 +57,3 @@ internal_modules.forEach(function(app_module){
     });
 });
 
-function runTests(exported_object, fn_declaration, test_matrix){
-    describe(fn_declaration[0], function () {
-        test_matrix.forEach(function (test_case) {
-            it('Handles ' + test_case.toString(), function (done) {
-                expect(exported_object.apply(null, test_case)).to.not.throw;
-            });
-        });
-    });
-}
