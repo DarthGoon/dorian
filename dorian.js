@@ -15,6 +15,22 @@ var third_party_modules = [];
 var internal_modules = [];
 var arg_test_values = [undefined, null, ''];
 
+function testFn(exported_object) {
+    var fn_declaration = /(?:function \()([^\)]+)\)/g.exec(exported_object.toString());
+    if (fn_declaration) {
+        var fn_args = fn_declaration[1].replace(' ', '').split(',');
+
+        var test_matrix = cmbx.baseN(arg_test_values, fn_args.length).toArray();
+
+        test_matrix.forEach(function (fn_args) {
+            mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
+                expect(exported_object.apply(this, fn_args)).to.not.throw;
+                done();
+            });
+        });
+
+    }
+}
 
 module.parent.children.forEach(function(module){
     if (module.filename.indexOf('node_modules') != -1) {
@@ -29,20 +45,17 @@ internal_modules.forEach(function(app_module){
     switch (typeof exported_object){
         case 'function':
             //inspect fn args
-            var fn_declaration = /(?:function \()([^\)]+)\)/g.exec(exported_object.toString());
-            if (fn_declaration) {
-                var fn_args = fn_declaration[1].replace(' ', '').split(',');
-
-                var test_matrix = cmbx.baseN(arg_test_values, fn_args.length).toArray();
-
-                test_matrix.forEach(function(fn_args) {
-                    mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
-                        expect(exported_object.apply(this, fn_args)).to.not.throw;
-                        done();
-                    });
-                });
-
-            }
+            testFn(exported_object);
+            break;
+        case 'Object':
+            exported_object.forEach(function(module_prop){
+                switch(typeof module_prop) {
+                    case 'function':
+                        testFn(module_prop);
+                        break;
+                    // TODO: lets get recursive.
+                }
+            });
             break;
         default:
             console.log('Unsupported module.exports type');
