@@ -6,28 +6,38 @@ var mocha = new mocha_frap({
     ui: 'tdd',
     reporter: 'spec'
 });
-/*
-TODO: maybe override process Error to catch app crashes
-*/
+
 var third_party_modules = [];
 var internal_modules = [];
 var arg_test_values = [{}, null, ''];
 
-var callback_fn = function(err, data){
-    expect(typeof err).to.not.eq('error');
-    console.log('callback called');
-};
+function callback_fn(done) {
+    return function (err, data) {
+        //TODO: sometimes there are no args passed- CRASH failure.
+        expect(typeof err).to.not.eq('error');
+        console.log('callback called');
+        done();
+    };
+}
+
+function fill_callback_fn(options, done) {
+    var matrix = options.matrix;
+    matrix.splice(options.callback_arg_position, 0, callback_fn(done));
+    return matrix;
+}
 
 function generateMatrix(fn_args){
     var callback_arg_position = fn_args.indexOf('callback');
+    if (callback_arg_position == -1){
+        callback_arg_position = fn_args.indexOf('next');
+    }
     var args_count = callback_arg_position == -1 ? fn_args.length : fn_args.length - 1;
-
-    var matrix = cmbx.baseN(arg_test_values, args_count).toArray();
+    var matrix = { values: cmbx.baseN(arg_test_values, args_count).toArray() };
 
     if (callback_arg_position != -1) {
-        matrix.forEach(function (args) {
-            args.splice(callback_arg_position, 0, callback_fn);
-        });
+        matrix.hasCallback = true;
+        matrix.callback_arg_position = callback_arg_position;
+        matrix.wireCallback = fill_callback_fn;
     }
     return matrix;
 }
@@ -37,12 +47,23 @@ function testFn(exported_object) {
     if (fn_declaration) {
         var fn_args = fn_declaration[1].replace(' ', '').split(',');
         var test_matrix = generateMatrix(fn_args);
+        var hasCallback = test_matrix.hasCallback;
+        var callback_arg_position = test_matrix.callback_arg_position;
 
-        if (test_matrix.length > 0) {
-            test_matrix.forEach(function (fn_args) {
+        if (test_matrix.values.length > 0) {
+            test_matrix.values.forEach(function (fn_args) {
                 mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
-                    expect(exported_object.apply(this, fn_args)).to.not.throw;
-                    done();
+                    var test_wired_args = fn_args;
+                    if (hasCallback){
+                        test_wired_args = fill_callback_fn({
+                            matrix: fn_args,
+                            callback_arg_position: callback_arg_position
+                        }, done)
+                    }
+                    expect(exported_object.apply(this, test_wired_args)).to.not.throw;
+                    if (hasCallback){
+                        done();
+                    }
                 });
             });
         } else {
