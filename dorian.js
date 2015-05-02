@@ -7,8 +7,7 @@ var mocha = new mocha_frap({
     reporter: 'spec'
 });
 /*
-TODO: Need to be able to run mocha programatically. Take a look at a mocha run to see how suites are built.
-TODO: See if we can build a mocha test suite, and run it programatically.
+TODO: maybe override process Error to catch app crashes
 */
 var third_party_modules = [];
 var internal_modules = [];
