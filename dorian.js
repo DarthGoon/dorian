@@ -10,10 +10,9 @@ var mocha = new mocha_frap({
 TODO: Need to be able to run mocha programatically. Take a look at a mocha run to see how suites are built.
 TODO: See if we can build a mocha test suite, and run it programatically.
 */
-
 var third_party_modules = [];
 var internal_modules = [];
-var arg_test_values = [undefined, null, ''];
+var arg_test_values = [{}, null, ''];
 
 function testFn(exported_object) {
     var fn_declaration = /(?:function \()([^\)]+)\)/g.exec(exported_object.toString());
