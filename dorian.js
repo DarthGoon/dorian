@@ -31,7 +31,7 @@ function testFn(exported_object) {
             });
         } else {
             mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
-                expect(exported_object.apply(this).to.not.throw;
+                expect(exported_object.apply(this)).to.not.throw;
                 done();
             });
         }
