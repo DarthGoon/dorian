@@ -1,8 +1,8 @@
 var cmbx = require('./lib/combinatorics').Combinatorics;
-var mocha_frap = require('./lib/mocha_frap');
+var mocha_module = require('mocha');
 var expect = require('chai').expect;
 
-var mocha = new mocha_frap({
+var mocha = new mocha_module({
     ui: 'tdd',
     reporter: 'spec'
 });
@@ -10,6 +10,7 @@ var mocha = new mocha_frap({
 var third_party_modules = [];
 var internal_modules = [];
 var arg_test_values = [{}, null, ''];
+var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/g;
 
 function callback_fn(done) {
     return function (err, data) {
@@ -28,7 +29,7 @@ function fill_callback_fn(options, done) {
 
 function generateMatrix(fn_args){
     var callback_arg_position = fn_args.indexOf('callback');
-    if (callback_arg_position == -1){
+    if (callback_arg_position == -1){ //TODO: make a callback whitelist out of this
         callback_arg_position = fn_args.indexOf('next');
     }
     var args_count = callback_arg_position == -1 ? fn_args.length : fn_args.length - 1;
@@ -43,7 +44,8 @@ function generateMatrix(fn_args){
 }
 
 function testFn(exported_object) {
-    var fn_declaration = /(?:function\s\w+\(|function\s\()([^\)]+|)\)/g.exec(exported_object.toString());
+    var mochaTest = mocha_module.Test;
+    var fn_declaration = fn_slicer.exec(exported_object.toString());
     if (fn_declaration) {
         var fn_args = fn_declaration[1].replace(' ', '').split(',');
         var test_matrix = generateMatrix(fn_args);
@@ -52,8 +54,8 @@ function testFn(exported_object) {
 
         if (test_matrix.values.length > 0) {
             test_matrix.values.forEach(function (fn_args) {
-                mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
-                    var test_wired_args = fn_args;
+                mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
+                    var test_wired_args;
                     if (hasCallback){
                         test_wired_args = fill_callback_fn({
                             matrix: fn_args,
@@ -64,13 +66,13 @@ function testFn(exported_object) {
                     if (hasCallback){
                         done();
                     }
-                });
+                }));
             });
         } else {
-            mocha.addTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
+            mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
                 expect(exported_object.apply(this)).to.not.throw;
                 done();
-            });
+            }));
         }
 
     }
