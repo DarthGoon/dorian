@@ -7,18 +7,20 @@ var mocha = new mocha_module({
     reporter: 'spec'
 });
 
+var callback_whitelist = ['callback', 'next', 'cb'];
 var third_party_modules = [];
 var internal_modules = [];
 var arg_test_values = [{}, null, ''];
 var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/;
 
 function callback_fn(done) {
-    return function (err, data) {
-        //TODO: sometimes there are no args passed- CRASH failure.
-        if(err) {
-            expect(typeof err).to.not.eq('error');
+    return function () {
+        if (arguments) {
+            for (var idx = 0; idx < arguments.length; idx++) {
+                expect(typeof arg).to.not.eq('error');
+            }
         }
-        console.log('callback called');
+        console.log('test callback fired');
         done();
     };
 }
@@ -30,13 +32,12 @@ function fill_callback_fn(options, done) {
 }
 
 function generateMatrix(fn_args){
-    var callback_arg_position = fn_args.indexOf('callback');
-    if (callback_arg_position == -1){ //TODO: make a callback whitelist out of this
-        callback_arg_position = fn_args.indexOf('next');
-    }
-    if (callback_arg_position == -1){ //TODO: make a callback whitelist out of this
-        callback_arg_position = fn_args.indexOf('cb');
-    }
+    var callback_arg_position = -1;
+    callback_whitelist.forEach(function(list_item){
+        if (callback_arg_position == -1) {
+            callback_arg_position = fn_args.indexOf(list_item);
+        }
+    });
     var args_count = callback_arg_position == -1 ? fn_args.length : fn_args.length - 1;
     var matrix = { values: cmbx.baseN(arg_test_values, args_count).toArray() };
 
@@ -60,7 +61,6 @@ function testFn(exported_object) {
         var hasCallback = test_matrix.hasCallback;
         var callback_arg_position = test_matrix.callback_arg_position;
 
-
         if (test_matrix.values.length > 0) {
             test_matrix.values.forEach(function (fn_args) {
                 mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
@@ -83,14 +83,12 @@ function testFn(exported_object) {
                 done();
             }));
         }
-
     }
 }
 
 function walkTheTree(exported_object){
     switch (typeof exported_object){
         case 'function':
-            //inspect fn args
             testFn(exported_object);
             break;
         case 'object':
@@ -128,9 +126,7 @@ internal_modules.forEach(function(app_module){
 console.log('Tests generated: %s', mocha.suite.tests.length);
 console.log('Starting Mocha test run...');
 mocha.run(function(failures) {
-    if (failures) {
-        console.log("Failures: %s", failures);
-    } else {
-        console.log("Module tests complete");
-    }
+    console.log('Tests ran: %s', mocha.suite.tests.length);
+    console.log('Failures: %s', failures || 0);
+    console.log('Dorian test run success');
 });
