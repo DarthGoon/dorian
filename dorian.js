@@ -63,7 +63,7 @@ function testFn(exported_object) {
 
         if (test_matrix.values.length > 0) {
             test_matrix.values.forEach(function (fn_args) {
-                mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - can handle - ' + JSON.stringify(fn_args), function (done) {
+                mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - handles - ' + JSON.stringify(fn_args), function (done) {
                     var test_wired_args;
                     if (hasCallback){
                         test_wired_args = fill_callback_fn({
