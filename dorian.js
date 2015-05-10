@@ -28,7 +28,7 @@ var callback_whitelist = ['callback', 'next', 'cb'];
 
 var third_party_modules = [];
 var internal_modules = [];
-var arg_test_values = [{}, null, ''];
+var arg_test_values = [{}, null, '', 0, 1, -1];
 var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/;
 
 function callback_fn(done) {
@@ -72,7 +72,8 @@ function testFn(exported_object) {
     var fn_declaration = fn_slicer.exec(exported_object.toString());
     if (fn_declaration) {
         var fn_args = fn_declaration[1].replace(/\s/g,'').split(',');
-        if (function_blacklist.indexOf(fn_declaration[0]) != -1){
+        var fn_name = /(?:function\s)(\w+)/.exec(fn_declaration[0]);
+        if (fn_name && function_blacklist.indexOf(fn_name[1]) != -1){
             return;
         }
         var test_matrix = generateMatrix(fn_args);
