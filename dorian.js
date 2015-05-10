@@ -7,7 +7,25 @@ var mocha = new mocha_module({
     reporter: 'spec'
 });
 
+
+
+/**
+ * TODO: this started out for debugging.  But would probably
+ * help to be able to target tests with params at runtime.
+ **/
+var function_blacklist = [ 'fraudCheck'];
+var function_whitelist = [];
+
+
+
+/**
+ * TODO: this feels weird, you can name a callback anything.
+ * Should figure out how to detect the param as a function.
+  */
 var callback_whitelist = ['callback', 'next', 'cb'];
+
+
+
 var third_party_modules = [];
 var internal_modules = [];
 var arg_test_values = [{}, null, ''];
@@ -54,8 +72,8 @@ function testFn(exported_object) {
     var fn_declaration = fn_slicer.exec(exported_object.toString());
     if (fn_declaration) {
         var fn_args = fn_declaration[1].replace(/\s/g,'').split(',');
-        if (fn_declaration[0].indexOf('fraudCheck') != -1){
-            return; // this is for debugging async crash problem
+        if (function_blacklist.indexOf(fn_declaration[0]) != -1){
+            return;
         }
         var test_matrix = generateMatrix(fn_args);
         var hasCallback = test_matrix.hasCallback;
