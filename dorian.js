@@ -17,7 +17,6 @@ var function_blacklist = [ 'fraudCheck'];
 var function_whitelist = [];
 
 
-
 /**
  * TODO: this feels weird, you can name a callback anything.
  * Should figure out how to detect the param as a function.
@@ -56,8 +55,8 @@ function generateMatrix(fn_args){
             callback_arg_position = fn_args.indexOf(list_item);
         }
     });
-    var args_count = callback_arg_position == -1 ? fn_args.length : fn_args.length - 1;
-    var matrix = { values: cmbx.baseN(arg_test_values, args_count).toArray() };
+    var args_count = callback_arg_position < 0 ? fn_args.length : fn_args.length - 1;
+    var matrix = { values: args_count ? cmbx.baseN(arg_test_values, args_count).toArray() : [] };
 
     if (callback_arg_position != -1) {
         matrix.hasCallback = true;
@@ -98,8 +97,14 @@ function testFn(exported_object) {
             });
         } else {
             mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - handles - ' + JSON.stringify(fn_args), function (done) {
-                expect(exported_object.apply(this)).to.not.throw;
-                done();
+                var test_wired_args = [];
+                if (hasCallback){
+                    test_wired_args = [ callback_fn(done) ];
+                }
+                expect(exported_object.apply(this, test_wired_args)).to.not.throw;
+                if (!hasCallback) {
+                    done();
+                }
             }));
         }
     }
