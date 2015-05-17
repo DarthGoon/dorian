@@ -148,8 +148,7 @@ module.parent.children.forEach(function(module){
         third_party_modules.push(module);
     } else {
         var instrumented_code = fs.readFileSync(module.filename);
-        instrumenter.instrumentSync(instrumented_code.toString(), module.filename);
-        collector.add(JSON.parse(instrumented_code.toString()));
+        collector.add(instrumenter.instrumentSync(instrumented_code.toString(), module.filename));
         internal_modules.push(module);
     }
 });
