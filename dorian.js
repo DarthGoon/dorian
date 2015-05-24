@@ -2,26 +2,20 @@ var fs = require('fs');
 var cmbx = require('./lib/combinatorics').Combinatorics;
 var mocha_module = require('mocha');
 var expect = require('chai').expect;
-var istanbul = require('istanbul');
-var instrumenter = new istanbul.Instrumenter();
-var reporter = istanbul.Report.create('html');
-var collector = new istanbul.Collector;
+var istanbul_mid = require('istanbul-middleware');
 
 var mocha = new mocha_module({
     ui: 'tdd',
     reporter: 'spec'
 });
 
-reporter.on('done', function () {
-    console.log('Wrote coverage Report');
-});
-
+istanbul_mid.hookLoader('/Users/adayalan/Engineering/opal', { verbose: true });
 
 /**
  * TODO: this started out for debugging.  But would probably
  * help to be able to target tests with params at runtime.
  **/
-var function_blacklist = [ 'fraudCheck'];
+var function_blacklist = [ 'fraudCheck', 'dorianTestExecutor'];
 var function_whitelist = [];
 
 
@@ -35,7 +29,7 @@ var callback_whitelist = ['callback', 'next', 'cb'];
 
 var third_party_modules = [];
 var internal_modules = [];
-var arg_test_values = [null];
+var arg_test_values = [ null ];
 var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/;
 var fn_name_slicer = /(?:function\s)(\w+)/;
 
@@ -143,27 +137,30 @@ function walkTheTree(exported_object){
     }
 }
 
-module.parent.children.forEach(function(module){
-    if (module.filename.indexOf('node_modules') != -1) {
-        third_party_modules.push(module);
-    } else {
-        var instrumented_code = fs.readFileSync(module.filename);
-        collector.add(instrumenter.instrumentSync(instrumented_code.toString(), module.filename));
-        internal_modules.push(module);
-    }
-});
+function seeWhatBreaks() {
+    module.parent.children.forEach(function (module) {
+        if (module.filename.indexOf('node_modules') != -1) {
+            third_party_modules.push(module);
+        } else {
+            internal_modules.push(module);
+        }
+    });
 
+    internal_modules.forEach(function (app_module) {
+        var exported_object = app_module.exports;
+        walkTheTree(exported_object);
+    });
 
-internal_modules.forEach(function(app_module){
-    var exported_object = app_module.exports;
-    walkTheTree(exported_object);
-});
+    console.log('Tests generated: %s', mocha.suite.tests.length);
+    console.log('Starting Mocha test run...');
+    mocha.run(function (failures) {
+        console.log('Tests ran: %s', mocha.suite.tests.length);
+        console.log('Failures: %s', failures || 0);
+        console.log('Dorian ops successfully completed');
+    });
+}
 
-console.log('Tests generated: %s', mocha.suite.tests.length);
-console.log('Starting Mocha test run...');
-mocha.run(function(failures) {
-    reporter.writeReport(collector);
-    console.log('Tests ran: %s', mocha.suite.tests.length);
-    console.log('Failures: %s', failures || 0);
-    console.log('Dorian test run success');
-});
+module.exports = function dorianTestExecutor(app){
+    app.use('/coverage', istanbul_mid.createHandler({ verbose: true, resetOnGet: true }));
+    seeWhatBreaks();
+};
