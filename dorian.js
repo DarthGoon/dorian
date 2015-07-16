@@ -1,31 +1,20 @@
+var istanbul_core = require('./lib/istanbul-core');
+istanbul_core.hookLoader('/Users/adayalan/Engineering/opal');
 var fs = require('fs');
 var cmbx = require('./lib/combinatorics').Combinatorics;
 var mocha_module = require('mocha');
 var expect = require('chai').expect;
-var istanbul = require('istanbul'),
-    collector = new istanbul.Collector(),
-    instrumentor = new istanbul.Instrumenter(),
-    reporter = new istanbul.Reporter(),
-    hook = istanbul.hook,
-    myMatcher = function (file) { return !file.match(/dorian/); },
-    myTransformer = function (code, file) {
-        instrumentor.instrumentSync(code, file);
-        return code;
-    };
+var istanbul = require('istanbul');
 var mocha = new mocha_module({
     ui: 'tdd',
     reporter: 'spec'
 });
 
-hook.hookRequire(myMatcher, myTransformer);;
-reporter.addAll([ 'text', 'lcov' ]);
-
-
 /**
  * TODO: this started out for debugging.  But would probably
  * help to be able to target tests with params at runtime.
  **/
-var function_blacklist = [ 'fraudCheck', 'dorianTestExecutor'];
+var function_blacklist = [ 'fraudCheck' ];
 var function_whitelist = [];
 
 
@@ -39,7 +28,7 @@ var callback_whitelist = ['callback', 'next', 'cb'];
 
 var third_party_modules = [];
 var internal_modules = [];
-var arg_test_values = [ null, undefined, '', -1, 0 ];
+var arg_test_values = [ null, undefined, 0, 1, -1, ''];
 var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/;
 var fn_name_slicer = /(?:function\s)(\w+)/;
 
@@ -160,23 +149,32 @@ function seeWhatBreaks() {
     internal_modules.forEach(function (app_module) {
         var exported_object = app_module.exports;
 
-        /*console.log(collector.files());
-
-        var filecoverage = collector.fileCoverageFor(app_module.filename);
-        var coverageObj = {};
-
-        coverageObj[app_module] = filecoverage;
-        collector.add(coverageObj);*/
-
         walkTheTree(exported_object, app_module.filename);
     });
 
     console.log('Tests generated: %s', mocha.suite.tests.length);
     console.log('Starting Mocha test run...');
     mocha.run(function (failures) {
-        reporter.write(collector, true, function () {
-            console.log('All reports generated');
+        var collector = new istanbul.Collector(),
+            Report = istanbul.Report,
+            treeSummary,
+            pathMap,
+            linkMapper,
+            outputNode,
+            report,
+            fileCoverage,
+            coverage = global.__coverage__ = global.__coverage__ || {};
+
+        collector.add(coverage);
+
+        report = Report.create('html');
+        report.writeReport(collector, true, function(){
+            console.log('Generated report');
         });
+
+        /*reporter.write(collector, true, function () {
+            console.log('All reports generated');
+        });*/
         console.log('Tests ran: %s', mocha.suite.tests.length);
         console.log('Failures: %s', failures || 0);
         console.log('Dorian ops successfully completed');
