@@ -2,14 +2,24 @@ var fs = require('fs');
 var cmbx = require('./lib/combinatorics').Combinatorics;
 var mocha_module = require('mocha');
 var expect = require('chai').expect;
-var istanbul_mid = require('istanbul-middleware');
-
+var istanbul = require('istanbul'),
+    collector = new istanbul.Collector(),
+    instrumentor = new istanbul.Instrumenter(),
+    reporter = new istanbul.Reporter(),
+    hook = istanbul.hook,
+    myMatcher = function (file) { return !file.match(/dorian/); },
+    myTransformer = function (code, file) {
+        instrumentor.instrumentSync(code, file);
+        return code;
+    };
 var mocha = new mocha_module({
     ui: 'tdd',
     reporter: 'spec'
 });
 
-istanbul_mid.hookLoader('/Users/adayalan/Engineering/opal', { verbose: true });
+hook.hookRequire(myMatcher, myTransformer);;
+reporter.addAll([ 'text', 'lcov' ]);
+
 
 /**
  * TODO: this started out for debugging.  But would probably
@@ -29,7 +39,7 @@ var callback_whitelist = ['callback', 'next', 'cb'];
 
 var third_party_modules = [];
 var internal_modules = [];
-var arg_test_values = [ null ];
+var arg_test_values = [ null, undefined, '', -1, 0 ];
 var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/;
 var fn_name_slicer = /(?:function\s)(\w+)/;
 
@@ -69,7 +79,7 @@ function generateMatrix(fn_args){
     return matrix;
 }
 
-function testFn(exported_object) {
+function testFn(exported_object, filename) {
     var mochaTest = mocha_module.Test;
     var fn_declaration = fn_slicer.exec(exported_object.toString());
     if (fn_declaration) {
@@ -113,10 +123,10 @@ function testFn(exported_object) {
     }
 }
 
-function walkTheTree(exported_object){
+function walkTheTree(exported_object, filename){
     switch (typeof exported_object){
         case 'function':
-            testFn(exported_object);
+            testFn(exported_object, filename);
             break;
         case 'object':
             for(var prop in exported_object){
@@ -139,7 +149,8 @@ function walkTheTree(exported_object){
 
 function seeWhatBreaks() {
     module.parent.children.forEach(function (module) {
-        if (module.filename.indexOf('node_modules') != -1) {
+        if (module.filename.indexOf('node_modules') != -1
+        || module.filename.indexOf('dorian') != -1) {  //TODO: stupid hack while the module doesn't come from npm
             third_party_modules.push(module);
         } else {
             internal_modules.push(module);
@@ -148,19 +159,30 @@ function seeWhatBreaks() {
 
     internal_modules.forEach(function (app_module) {
         var exported_object = app_module.exports;
-        walkTheTree(exported_object);
+
+        /*console.log(collector.files());
+
+        var filecoverage = collector.fileCoverageFor(app_module.filename);
+        var coverageObj = {};
+
+        coverageObj[app_module] = filecoverage;
+        collector.add(coverageObj);*/
+
+        walkTheTree(exported_object, app_module.filename);
     });
 
     console.log('Tests generated: %s', mocha.suite.tests.length);
     console.log('Starting Mocha test run...');
     mocha.run(function (failures) {
+        reporter.write(collector, true, function () {
+            console.log('All reports generated');
+        });
         console.log('Tests ran: %s', mocha.suite.tests.length);
         console.log('Failures: %s', failures || 0);
         console.log('Dorian ops successfully completed');
     });
 }
 
-module.exports = function dorianTestExecutor(app){
-    app.use('/coverage', istanbul_mid.createHandler({ verbose: true, resetOnGet: true }));
-    seeWhatBreaks();
+module.exports = {
+    run: seeWhatBreaks
 };
