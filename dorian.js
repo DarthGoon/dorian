@@ -1,20 +1,29 @@
-var istanbul_core = require('./lib/istanbul-core');
-istanbul_core.hookLoader('/Users/adayalan/Engineering/opal');
 var fs = require('fs');
 var cmbx = require('./lib/combinatorics').Combinatorics;
 var mocha_module = require('mocha');
 var expect = require('chai').expect;
 var istanbul = require('istanbul');
+var istanbul_core = require('./lib/istanbul-core');
+istanbul_core.hookLoader('/Users/adayalan/Engineering/opal', {
+    postLoadHook: function (matcherFn, transformer, verbose) {
+        return function(file) {
+            if (matcherFn(file)) {
+                console.log("Instrumenting: %s", file);
+            }
+        };
+    }
+});
 var mocha = new mocha_module({
     ui: 'tdd',
     reporter: 'spec'
 });
+var test_pass_incrementor = 0;
 
 /**
  * TODO: this started out for debugging.  But would probably
  * help to be able to target tests with params at runtime.
  **/
-var function_blacklist = [ 'fraudCheck' ];
+var function_blacklist = [ 'doNotTestFunc' ];
 var function_whitelist = [];
 
 
@@ -28,7 +37,7 @@ var callback_whitelist = ['callback', 'next', 'cb'];
 
 var third_party_modules = [];
 var internal_modules = [];
-var arg_test_values = [ null, undefined, 0, 1, -1, ''];
+var arg_test_values = [ {}, [], 0, 1 ];
 var fn_slicer = /(?:function\s\w+\(|function\s\()([^\)]+)\)/;
 var fn_name_slicer = /(?:function\s)(\w+)/;
 
@@ -36,7 +45,8 @@ function callback_fn(done) {
     return function () {
         if (arguments) {
             for (var idx = 0; idx < arguments.length; idx++) {
-                expect(typeof arg).to.not.eq('error');
+                expect(typeof arguments[idx]).to.not.eq('error');
+                walkTheTree(arguments[idx] || {});
             }
         }
         console.log('test callback fired');
@@ -68,7 +78,7 @@ function generateMatrix(fn_args){
     return matrix;
 }
 
-function testFn(exported_object, filename) {
+function testFn(exported_object) {
     var mochaTest = mocha_module.Test;
     var fn_declaration = fn_slicer.exec(exported_object.toString());
     if (fn_declaration) {
@@ -91,8 +101,14 @@ function testFn(exported_object, filename) {
                             callback_arg_position: callback_arg_position
                         }, done)
                     }
-                    expect(exported_object.apply(this, test_wired_args)).to.not.throw;
+                    //try {
+                        expect(exported_object.apply(this, test_wired_args)).to.not.throw();
+                    /*} catch(ex){
+                        console.log(ex);
+                        done();
+                    }*/
                     if (!hasCallback) {
+                        setTimeout(walkTheTree(exported_object.apply(this, test_wired_args) || {}), 0);
                         done();
                     }
                 }));
@@ -103,8 +119,14 @@ function testFn(exported_object, filename) {
                 if (hasCallback) {
                     test_wired_args = [callback_fn(done)];
                 }
-                expect(exported_object.apply(this, test_wired_args)).to.not.throw;
+                try {
+                    expect(exported_object.apply(this, test_wired_args)).to.not.throw();
+                } catch (ex){
+                    console.log(ex);
+                    done();
+                }
                 if (!hasCallback) {
+                    setTimeout(walkTheTree(exported_object.apply(this, test_wired_args) || {}), 0);
                     done();
                 }
             }));
@@ -112,10 +134,12 @@ function testFn(exported_object, filename) {
     }
 }
 
-function walkTheTree(exported_object, filename){
+function walkTheTree(exported_object){
     switch (typeof exported_object){
         case 'function':
-            testFn(exported_object, filename);
+            // the recursive call here is to account for functions
+            // that return objects of functions.  Incepta-functions
+            testFn(exported_object);
             break;
         case 'object':
             for(var prop in exported_object){
@@ -137,6 +161,9 @@ function walkTheTree(exported_object, filename){
 }
 
 function seeWhatBreaks() {
+    var collector = new istanbul.Collector(),
+        Report = istanbul.Report;
+
     module.parent.children.forEach(function (module) {
         if (module.filename.indexOf('node_modules') != -1
         || module.filename.indexOf('dorian') != -1) {  //TODO: stupid hack while the module doesn't come from npm
@@ -149,35 +176,42 @@ function seeWhatBreaks() {
     internal_modules.forEach(function (app_module) {
         var exported_object = app_module.exports;
 
-        walkTheTree(exported_object, app_module.filename);
+        walkTheTree(exported_object);
     });
 
-    console.log('Tests generated: %s', mocha.suite.tests.length);
-    console.log('Starting Mocha test run...');
-    mocha.run(function (failures) {
-        var collector = new istanbul.Collector(),
-            Report = istanbul.Report,
-            treeSummary,
-            pathMap,
-            linkMapper,
-            outputNode,
-            report,
-            fileCoverage,
-            coverage = global.__coverage__ = global.__coverage__ || {};
-
-        collector.add(coverage);
-
-        report = Report.create('html');
+    incrementalMochaRun(collector, function(){
+        var report = Report.create('html');
         report.writeReport(collector, true, function(){
             console.log('Generated report');
         });
 
-        /*reporter.write(collector, true, function () {
-            console.log('All reports generated');
-        });*/
         console.log('Tests ran: %s', mocha.suite.tests.length);
         console.log('Failures: %s', failures || 0);
-        console.log('Dorian ops successfully completed');
+        console.log('Dorian run successful');
+    });
+}
+
+function incrementalMochaRun(collector, callback){
+    var mocha_instance,
+        coverage = global.__coverage__ = global.__coverage__ || {};
+
+    test_pass_incrementor++;
+    console.log('Tests generated for pass (%s): %s', test_pass_incrementor, mocha.suite.tests.length);
+    console.log('Starting Mocha test run...');
+
+    mocha_instance = mocha;
+    mocha = new mocha_module({
+        ui: 'tdd',
+        reporter: 'spec'
+    });
+
+    mocha_instance.run(function (failures) {
+        collector.add(coverage);
+        if (mocha.suite.tests.length > 0){
+            incrementalMochaRun(collector, callback);
+        } else {
+            callback();
+        }
     });
 }
 
