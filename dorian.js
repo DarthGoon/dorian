@@ -77,35 +77,61 @@ var dorian_ops = {
                 async.each(test_matrix.values, function(fn_args){
                     mocha.suite.addTest(new mocha_module.Test(fn_declaration[0] + ' - handles - ' + JSON.stringify(fn_args), function (done) {
                         var test_wired_args,
-                            assertion;
+                            fn_result;
                         if (test_matrix.hasCallback) {
                             test_wired_args = fill_callback_fn({
                                 matrix: fn_args,
                                 callback_arg_position: test_matrix.callback_arg_position
-                            }, done)
+                            }, done);
+                            assert.doesNotThrow(function () {
+                                try {
+                                    fn_result = exported_object.bind(this, test_wired_args);
+                                } catch (err) {
+                                    throw err;
+                                }
+                            }, /.*/);
+                        } else {
+                            assert.doesNotThrow(function () {
+                                try {
+                                    fn_result = exported_object.bind(this, fn_args);
+                                    done();
+                                } catch (err) {
+                                    throw err;
+                                }
+                            }, /.*/);
                         }
 
-                        assertion = assert.doesNotThrow(exported_object.bind(this, test_wired_args), /.*/);
-
-                        if (assertion && !test_matrix.hasCallback) {
-                            walkTheTree(exported_object.bind(this, test_wired_args));
-                            done();
+                        if (fn_result) {
+                            this.walkTheTree(fn_result);
                         }
                     }));
                 });
             } else {
-                mocha.suite.addTest(new mochaTest(fn_declaration[0] + ' - handles - ' + JSON.stringify(fn_args), function (done) {
+                mocha.suite.addTest(new mocha_module.Test(fn_declaration[0] + ' - handles - ' + JSON.stringify(fn_args), function (done) {
                     var test_wired_args = [],
-                        assertion;
-                    if (hasCallback) {
+                        fn_result;
+                    if (test_matrix.hasCallback) {
                         test_wired_args = [callback_fn(done)];
+                        assert.doesNotThrow(function () {
+                            try {
+                                fn_result = exported_object.bind(this, test_wired_args);
+                            } catch (err) {
+                                throw err;
+                            }
+                        }, /.*/);
+                    } else {
+                        assert.doesNotThrow(function () {
+                            try {
+                                fn_result = exported_object.bind(this, fn_args);
+                                done();
+                            } catch (err) {
+                                throw err;
+                            }
+                        }, /.*/);
                     }
 
-                    assertion = assert.doesNotThrow(exported_object.bind(this, test_wired_args), /.*/);
-
-                    if (assertion && !hasCallback) {
-                        walkTheTree(exported_object.bind(this, test_wired_args));
-                        done();
+                    if (fn_result) {
+                        this.walkTheTree(fn_result);
                     }
                 }));
             }
@@ -125,7 +151,7 @@ var dorian_ops = {
     },
     fill_callback_fn: function fill_callback_fn(options, done) {
         options.matrix.splice(options.callback_arg_position, 0, this.callback_fn(done));
-        return matrix;
+        return options.matrix;
     },
     generateMatrix: function generateMatrix(fn_args){
         /**
@@ -153,41 +179,41 @@ var dorian_ops = {
         return matrix;
     },
     buildTestSuite: function buildTestSuite() {
-        var floor = multi_pass_generator.length;
-        if (test_pass_incrementor == 0 || multi_pass_generator.length < 100){
+        var floor = dorian_workspace.multi_pass_generator.length;
+        if (dorian_workspace.test_pass_incrementor == 0 || dorian_workspace.multi_pass_generator.length < 100){
             floor = 0;
         } else {
-            floor = multi_pass_generator.length - 100;
+            floor = dorian_workspace.multi_pass_generator.length - 100;
         }
         console.log('Building new test suite');
-        while (multi_pass_generator.length > floor) {
-            multi_pass_generator.pop()();
+        while (dorian_workspace.multi_pass_generator.length > floor) {
+            dorian_workspace.multi_pass_generator.pop()();
         }
     },
     seeWhatBreaks: function seeWhatBreaks() {
         module.parent.children.forEach(function (module) {
             if (module.filename.indexOf('node_modules') == -1
                 || module.filename.indexOf('dorian') == -1) {  //TODO: stupid hack while the module doesn't come from npm
-                internal_modules.push(module);
+                dorian_workspace.internal_modules.push(module);
             }
         });
 
-        internal_modules.forEach(function (app_module) {
+        dorian_workspace.internal_modules.forEach(function (app_module) {
             var exported_object = app_module.exports;
-            walkTheTree(exported_object);
+            this.walkTheTree(exported_object);
         });
 
 
 
-        buildTestSuite();
+        this.buildTestSuite();
 
-        incrementalMochaRun(dorian_ctx.coverage_collector, function (failures) {
-            var report = dorian_ctx.coverage_reporter.create('html');
-            report.writeReport(dorian_ctx.coverage_collector, true, function () {
+        this.incrementalMochaRun(this.coverage_collector, function (failures) {
+            var report = this.coverage_reporter.create('html');
+            report.writeReport(this.coverage_collector, true, function () {
                 console.log('Generated report');
             });
 
-            console.log('Tests ran: %s', dorian_ctx.mocha.suite.tests.length);
+            console.log('Tests ran: %s', this.mocha.suite.tests.length);
             console.log('Failures: %s', failures || 0);
             console.log('Dorian run successful');
         });
@@ -201,13 +227,13 @@ var dorian_ops = {
                 reporter: 'spec'
             });
 
-            test_pass_incrementor++;
-            console.log('Tests generated for pass (%s): %s', test_pass_incrementor, mocha_instance.suite.tests.length);
+            dorian_workspace.test_pass_incrementor++;
+            console.log('Tests generated for pass (%s): %s', dorian_workspace.test_pass_incrementor, mocha_instance.suite.tests.length);
             console.log('Starting Mocha test run...');
 
             mocha_instance.run(function (failures) {
                 collector.add(coverage);
-                buildTestSuite();
+                this.buildTestSuite();
                 if (mocha.suite.tests.length > 0) {
                     incrementalMochaRun(collector, callback);
                 } else {
@@ -228,11 +254,14 @@ var dorian_ops = {
 var dorian_workspace = {
     internal_modules: [],
     multi_pass_generator: [],
-    test_pass_incrementor: 0,
+    test_pass_incrementor: 0
 
 };
 
-
+/**
+ * export entry function to the consumers
+ * @type {{run: (dorian_ops.seeWhatBreaks|Function)}}
+ */
 module.exports = {
-    run: seeWhatBreaks
+    run: dorian_ops.seeWhatBreaks
 };
