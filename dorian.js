@@ -217,6 +217,19 @@ Object.defineProperties(dorian_OPS, {
                 dorian_OPS.walkTheTree(exported_object);
             });
 
+            /**
+             * This is crazy talk.
+             * So the high level tests that get generated don't cover enough code.
+             * The thing is, most of what goes on in node, happens via callbacks.
+             * So it'll need to be able to make incremental passes, that eval
+             * the ASTs of new runtime objects, in order to cover more code.
+             * The logical problem starts here.  Dorian needs to-
+             *  - inspect an AST
+             *  - build a test suite
+             *  - run the suite/capture runtime test targets
+             *  - repeat until no new targets are found
+             *  - output coverage metrics
+             */
 
             dorian_OPS.buildTestSuite();
 
@@ -258,8 +271,16 @@ Object.defineProperties(dorian_OPS, {
                 });
             }, 1000);
         }
+        /**
+         * This is the end of the crazy talk logic problem.
+         * This block of code is responsible for the orchestration
+         * of the test flow.  The last aspect is the testFn();
+         * which contains the logic capturing new test targets.
+         */
     }
 });
+
+
 
 /**
  * Dynamic memory allocation
@@ -275,9 +296,10 @@ var dorian_workspace = {
 
 };
 
+
 /**
  * export entry function to the consumers
- * @type {{run: (dorian_ops.seeWhatBreaks|Function)}}
+ * @type {{run: (dorian_OPS.seeWhatBreaks|Function)}}
  */
 module.exports = {
     run: dorian_OPS.seeWhatBreaks
