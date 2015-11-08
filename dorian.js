@@ -199,7 +199,9 @@ Object.defineProperties(dorian_OPS, {
             }
             console.log('Building new test suite');
             while (dorian_workspace.multi_pass_generator.length > floor) {
-                dorian_workspace.multi_pass_generator.pop()();
+                dorian_workspace.multi_pass_generator.pop()(); // REMEMBER this is executing the popped function
+                // really shouldn't have executed like this ^  -this was really hard to spot, reading it later.
+                // also- what's the popped function???  this was dumb.  this is self-anti-documenting code.
             }
         }
     },
@@ -228,6 +230,7 @@ Object.defineProperties(dorian_OPS, {
              *  - build a test suite
              *  - run the suite/capture runtime test targets
              *  - repeat until no new targets are found
+             *
              *  - output coverage metrics
              */
 
