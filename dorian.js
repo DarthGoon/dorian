@@ -30,7 +30,7 @@ istanbul_core.hookLoader('/Users/adayalan/Engineering/opal', {
  * Try to get as much of the constant stuff in here so it consolidates memory.
  * Avoid any objects the grow, keep recursion in mind, move them to the workspace (below)
  */
-var dorian_OPS = {};
+var dorian_OPS = new function Dorian() {};
 Object.defineProperties(dorian_OPS, {
     mocha_instance: {value: new mocha_module({ui: 'tdd', reporter: 'spec'})},
     function_blacklist: {value: ['send_email_to_team', 'fraudCheck']},
@@ -214,11 +214,6 @@ Object.defineProperties(dorian_OPS, {
                 }
             });
 
-            dorian_workspace.internal_modules.forEach(function (app_module) {
-                var exported_object = app_module.exports;
-                dorian_OPS.walkTheTree(exported_object);
-            });
-
             /**
              * This is crazy talk.
              * So the high level tests that get generated don't cover enough code.
@@ -233,6 +228,11 @@ Object.defineProperties(dorian_OPS, {
              *
              *  - output coverage metrics
              */
+
+            dorian_workspace.internal_modules.forEach(function (app_module) {
+                var exported_object = app_module.exports;
+                dorian_OPS.walkTheTree(exported_object);
+            });
 
             dorian_OPS.buildTestSuite();
 
