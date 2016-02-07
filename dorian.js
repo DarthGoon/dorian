@@ -33,7 +33,7 @@ istanbul_core.hookLoader('[PATH OF TEST PROJECT]', {
 var dorian_OPS = new function Dorian() {};
 Object.defineProperties(dorian_OPS, {
     mocha_instance: {value: new mocha_module({ui: 'tdd', reporter: 'spec'})},
-    function_blacklist: {value: ['send_email_to_team', 'fraudCheck']},
+    function_blacklist: {value: ['[FUNCTION NAMES TO IGNORE]']},
     callback_whitelist: {value: ['callback', 'next', 'cb']},
     arg_test_values: {value: [{}, [], 0, 1]},
     fn_slicer: {value: /(?:function\s\w+\(|function\s\()([^\)]+)\)/},
