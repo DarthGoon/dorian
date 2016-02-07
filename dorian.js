@@ -5,7 +5,7 @@ var mocha_module = require('mocha');
 var assert = require('chai').assert;
 var istanbul = require('istanbul');
 var istanbul_core = require('./lib/istanbul-core');
-istanbul_core.hookLoader('/Users/adayalan/Engineering/opal', {
+istanbul_core.hookLoader('[PATH OF TEST PROJECT]', {
     postLoadHook: function (matcherFn, transformer, verbose) {
         return function(file) {
             if (matcherFn(file)) {
